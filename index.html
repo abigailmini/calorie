@@ -392,11 +392,12 @@ let API_URL = '';
 const GIST_RAW = 'https://gist.githubusercontent.com/abigailmini/1a10bef17254252fb6af2c61f2db6fc0/raw/api-url.txt';
 
 // API fetch helper with serveo bypass header
-function apiFetch(path, body) {
+function apiFetch(path, body, timeoutMs = 30000) {
   return fetch(`${API_URL}${path}`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', 'Bypass-Tunnel-Reminder': 'true' },
-    body: JSON.stringify(body)
+    body: JSON.stringify(body),
+    signal: AbortSignal.timeout(timeoutMs)
   });
 }
 let dailyData = [], lastAnalysis = null;
@@ -537,8 +538,26 @@ fileInput.addEventListener('change', async (e) => {
 
   const reader = new FileReader();
   reader.onload = async (ev) => {
-    const dataUrl = ev.target.result;
-    document.getElementById('previewImg').src = dataUrl;
+    const origDataUrl = ev.target.result;
+    document.getElementById('previewImg').src = origDataUrl;
+
+    // Compress image before sending (max 800px, JPEG 70%)
+    const dataUrl = await new Promise((resolve) => {
+      const img = new Image();
+      img.onload = () => {
+        const MAX = 800;
+        let w = img.width, h = img.height;
+        if (w > MAX || h > MAX) {
+          if (w > h) { h = Math.round(h * MAX / w); w = MAX; }
+          else { w = Math.round(w * MAX / h); h = MAX; }
+        }
+        const c = document.createElement('canvas');
+        c.width = w; c.height = h;
+        c.getContext('2d').drawImage(img, 0, 0, w, h);
+        resolve(c.toDataURL('image/jpeg', 0.7));
+      };
+      img.src = origDataUrl;
+    });
     document.getElementById('previewArea').classList.add('show');
     document.getElementById('uploadZone').style.display = 'none';
     document.getElementById('analyzingMsg').style.display = 'block';
@@ -546,7 +565,7 @@ fileInput.addEventListener('change', async (e) => {
     document.getElementById('editSection').style.display = 'none';
 
     try {
-      const resp = await apiFetch('/analyze', { image: dataUrl });
+      const resp = await apiFetch('/analyze', { image: dataUrl }, 45000);
       const data = await resp.json();
       document.getElementById('analyzingMsg').style.display = 'none';
 

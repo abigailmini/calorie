@@ -313,8 +313,8 @@ body {
   <input type="file" id="fileInputGallery" accept="image/*" style="display:none">
   <div id="uploadBtns" style="display:flex;flex-direction:column;gap:10px;padding-top:20px">
     <div style="text-align:center;margin-bottom:12px"><svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="var(--accent2)" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg></div>
-    <button class="btn btn-primary" onclick="document.getElementById('fileInput').click()">📸 Take Photo</button>
-    <button class="btn btn-secondary" onclick="document.getElementById('fileInputGallery').click()">🖼️ Choose from Gallery</button>
+    <button class="btn btn-primary" onclick="document.getElementById('fileInput').value='';document.getElementById('fileInput').click()">📸 Take Photo</button>
+    <button class="btn btn-secondary" onclick="document.getElementById('fileInputGallery').value='';document.getElementById('fileInputGallery').click()">🖼️ Choose from Gallery</button>
     <div style="display:flex;align-items:center;gap:12px;margin:4px 0"><div style="flex:1;height:1px;background:var(--card-border)"></div><span style="color:var(--text-dim);font-size:0.75rem">OR</span><div style="flex:1;height:1px;background:var(--card-border)"></div></div>
     <button class="btn btn-secondary" onclick="startManualEntry()" style="border-color:var(--accent)">✏️ Type What You Ate</button>
     <!-- Quick text input for AI parsing -->
@@ -571,10 +571,15 @@ function renderDash(data) {
 const fileInput = document.getElementById('fileInput');
 const fileInputGallery = document.getElementById('fileInputGallery');
 fileInputGallery.addEventListener('change', handlePhoto);
+fileInputGallery.addEventListener('input', handlePhoto);
 fileInput.addEventListener('change', handlePhoto);
+fileInput.addEventListener('input', handlePhoto);
+let _photoProcessing = false;
 async function handlePhoto(e) {
   const file = e.target.files[0];
-  if (!file) return;
+  console.log('handlePhoto fired, file:', file ? file.name + ' ' + file.type + ' ' + file.size : 'none');
+  if (!file || _photoProcessing) return;
+  _photoProcessing = true;
 
   const reader = new FileReader();
   reader.onload = async (ev) => {
@@ -635,6 +640,7 @@ async function handlePhoto(e) {
           Send to Abi on WhatsApp
         </a>`;
     }
+    _photoProcessing = false;
   };
   reader.readAsDataURL(file);
 }

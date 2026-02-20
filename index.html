@@ -159,7 +159,7 @@ body {
   background: rgba(255,107,107,0.15); color: var(--red);
   font-size: 0.8rem; cursor: pointer; flex-shrink: 0; margin-left: 8px;
 }
-.edit-item-macros { display: grid; grid-template-columns: 1fr 1fr 1fr 1fr; gap: 6px; }
+.edit-item-macros { display: grid; grid-template-columns: 1fr 1fr 1fr 1fr 1fr; gap: 5px; }
 .macro-field { text-align: center; }
 .macro-field label { display: block; font-size: 0.6rem; color: var(--text-dim); text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 2px; }
 .macro-field input {
@@ -325,6 +325,10 @@ body {
           <button class="chip" onclick="addItem()" style="margin:0;font-size:0.7rem">+ Add Item</button>
         </div>
         <div id="itemsList"></div>
+      </div>
+      <div id="recoBox" class="card" style="margin-top:10px;display:none;border-color:rgba(0,206,201,0.3);background:rgba(0,206,201,0.05)">
+        <div class="card-title" style="color:var(--accent2)">💡 Recommendation</div>
+        <div id="recoText" style="font-size:0.85rem;line-height:1.5"></div>
       </div>
       <div class="card" style="margin-top:10px">
         <div class="card-title">Meal Total</div>
@@ -609,13 +613,19 @@ function renderEditItems() {
         <button class="edit-item-del" onclick="editItems.splice(${i},1);renderEditItems()">✕</button>
       </div>
       <div class="edit-item-macros">
+        <div class="macro-field"><label>Wt(g)</label><input type="number" value="${item.weight_g||0}" onchange="editItems[${i}].weight_g=+this.value"></div>
         <div class="macro-field"><label>Cal</label><input type="number" value="${item.calories||0}" onchange="editItems[${i}].calories=+this.value;updateTotals()"></div>
-        <div class="macro-field"><label>Protein</label><input type="number" value="${item.protein||0}" onchange="editItems[${i}].protein=+this.value;updateTotals()"></div>
-        <div class="macro-field"><label>Carbs</label><input type="number" value="${item.carbs||0}" onchange="editItems[${i}].carbs=+this.value;updateTotals()"></div>
+        <div class="macro-field"><label>Prot</label><input type="number" value="${item.protein||0}" onchange="editItems[${i}].protein=+this.value;updateTotals()"></div>
+        <div class="macro-field"><label>Carb</label><input type="number" value="${item.carbs||0}" onchange="editItems[${i}].carbs=+this.value;updateTotals()"></div>
         <div class="macro-field"><label>Fat</label><input type="number" value="${item.fat||0}" onchange="editItems[${i}].fat=+this.value;updateTotals()"></div>
       </div>
     </div>`).join('');
   updateTotals();
+  // Show recommendation if available
+  if (lastAnalysis?.recommendation) {
+    document.getElementById('recoBox').style.display = 'block';
+    document.getElementById('recoText').textContent = lastAnalysis.recommendation;
+  }
 }
 
 function updateTotals() {
@@ -628,7 +638,7 @@ function updateTotals() {
 }
 
 function addItem() {
-  editItems.push({ name: 'New item', calories: 0, protein: 0, carbs: 0, fat: 0 });
+  editItems.push({ name: 'New item', weight_g: 0, calories: 0, protein: 0, carbs: 0, fat: 0 });
   renderEditItems();
   // Focus the new item name
   setTimeout(() => { const names = document.querySelectorAll('.edit-item-name'); names[names.length-1]?.focus(); }, 50);

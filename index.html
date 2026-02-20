@@ -309,12 +309,12 @@ body {
   <div class="page-header"><h1>Log Food</h1><div class="sub">Scan a photo or type what you ate</div></div>
   <div class="upload-zone" id="uploadZone" onclick="document.getElementById('fileInput').click()" style="display:none">
   </div>
-  <input type="file" id="fileInput" accept="image/*" capture="environment" style="display:none">
-  <input type="file" id="fileInputGallery" accept="image/*" style="display:none">
+  <input type="file" id="fileInput" accept="image/*" capture="environment" style="display:none;position:absolute">
+  <input type="file" id="fileInputGallery" accept="image/*" style="display:none;position:absolute">
   <div id="uploadBtns" style="display:flex;flex-direction:column;gap:10px;padding-top:20px">
     <div style="text-align:center;margin-bottom:12px"><svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="var(--accent2)" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg></div>
-    <button class="btn btn-primary" onclick="document.getElementById('fileInput').value='';document.getElementById('fileInput').click()">📸 Take Photo</button>
-    <button class="btn btn-secondary" onclick="document.getElementById('fileInputGallery').value='';document.getElementById('fileInputGallery').click()">🖼️ Choose from Gallery</button>
+    <label class="btn btn-primary" for="fileInput" onclick="document.getElementById('fileInput').value=''">📸 Take Photo</label>
+    <label class="btn btn-secondary" for="fileInputGallery" onclick="document.getElementById('fileInputGallery').value=''">🖼️ Choose from Gallery</label>
     <div style="display:flex;align-items:center;gap:12px;margin:4px 0"><div style="flex:1;height:1px;background:var(--card-border)"></div><span style="color:var(--text-dim);font-size:0.75rem">OR</span><div style="flex:1;height:1px;background:var(--card-border)"></div></div>
     <button class="btn btn-secondary" onclick="startManualEntry()" style="border-color:var(--accent)">✏️ Type What You Ate</button>
     <!-- Quick text input for AI parsing -->

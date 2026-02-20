@@ -143,9 +143,9 @@ body {
 
 /* ============ ASK PAGE ============ */
 .chat-messages {
-  min-height: 300px; max-height: 60vh; overflow-y: auto;
+  min-height: 200px; max-height: calc(100dvh - 280px); overflow-y: auto;
   display: flex; flex-direction: column; gap: 10px;
-  margin-bottom: 16px; padding: 4px;
+  margin-bottom: 8px; padding: 4px;
 }
 .chat-msg {
   max-width: 85%; padding: 12px 16px; border-radius: 16px;
@@ -161,8 +161,9 @@ body {
 }
 .chat-msg.ai .thinking { color: var(--accent2); font-style: italic; }
 .chat-input-row {
-  display: flex; gap: 8px; position: sticky; bottom: calc(var(--nav-h) + var(--safe-bottom) + 16px);
-  background: var(--bg); padding: 8px 0;
+  display: flex; gap: 8px; position: fixed; bottom: calc(var(--nav-h) + var(--safe-bottom));
+  left: 0; right: 0; padding: 10px 16px; background: var(--bg);
+  border-top: 1px solid var(--card-border); max-width: 600px; margin: 0 auto;
 }
 .chat-input {
   flex: 1; background: var(--card); border: 1px solid var(--card-border);
@@ -171,9 +172,10 @@ body {
 }
 .chat-input::placeholder { color: var(--text-dim); }
 .chat-send {
-  width: 48px; height: 48px; border-radius: 12px; border: none;
+  width: 44px; height: 44px; border-radius: 12px; border: none;
   background: linear-gradient(135deg, var(--accent), var(--accent2));
   color: #fff; font-size: 1.2rem; cursor: pointer; flex-shrink: 0;
+  display: flex; align-items: center; justify-content: center;
 }
 
 /* Quick suggestion chips */
@@ -212,7 +214,7 @@ body {
   transition: color 0.2s;
   color: var(--text-dim); font-size: 0.6rem; font-weight: 500; text-transform: uppercase; letter-spacing: 0.5px;
 }
-.nav-item .icon { font-size: 1.4rem; }
+.nav-item .icon { font-size: 1.4rem; line-height: 0; }
 .nav-item.active { color: var(--accent2); }
 
 /* Center upload button */
@@ -276,13 +278,13 @@ body {
 
 <!-- ===== UPLOAD PAGE ===== -->
 <div class="page" id="pg-upload">
-  <div class="page-header"><h1>📸 Scan Food</h1><div class="sub">Take a photo and AI will estimate calories</div></div>
+  <div class="page-header"><h1>Scan Food</h1><div class="sub">Take a photo or pick from gallery · AI estimates calories</div></div>
   <div class="upload-zone" id="uploadZone" onclick="document.getElementById('fileInput').click()">
-    <div class="icon">📷</div>
+    <div class="icon"><svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="var(--accent2)" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg></div>
     <div class="txt">Tap to take photo or choose from gallery</div>
     <div class="hint">AI will analyze and estimate calories & macros</div>
   </div>
-  <input type="file" id="fileInput" accept="image/*" capture="environment" style="display:none">
+  <input type="file" id="fileInput" accept="image/*" style="display:none">
   <div class="preview-area" id="previewArea">
     <img id="previewImg" src="" alt="Food photo">
     <div class="analyzing" id="analyzingMsg"><span class="spinner"></span> Analyzing with AI...</div>
@@ -294,25 +296,27 @@ body {
 
 <!-- ===== ASK PAGE ===== -->
 <div class="page" id="pg-ask">
-  <div class="page-header"><h1>💬 Ask Abi</h1><div class="sub">Calorie questions, meal ideas, recommendations</div></div>
-  <div class="chips">
+  <div class="page-header"><h1>Ask Abi</h1><div class="sub">Powered by AI · Calorie & fitness advice</div></div>
+  <div class="chips" id="chipsSec">
     <div class="chip" onclick="askQ('What should I eat for dinner to hit my protein target?')">🍗 Dinner ideas</div>
     <div class="chip" onclick="askQ('How am I doing this week?')">📊 Weekly check</div>
     <div class="chip" onclick="askQ('High protein low cal snack ideas')">🥜 Snack ideas</div>
-    <div class="chip" onclick="askQ('Am I on track for my 14% BF goal?')">🎯 Progress check</div>
+    <div class="chip" onclick="askQ('Am I on track for my 14% BF goal?')">🎯 Progress</div>
   </div>
   <div class="chat-messages" id="chatMsgs">
-    <div class="chat-msg ai">Hey! Ask me anything about your diet, calories, meal ideas, or progress. I'll check your data and give you advice 💪</div>
+    <div class="chat-msg ai">Hey! Ask me anything about your diet, calories, meal ideas, or progress 💪</div>
   </div>
-  <div class="chat-input-row">
-    <textarea class="chat-input" id="chatInput" rows="1" placeholder="Ask about calories, meals, progress..." onkeydown="if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();sendChat()}"></textarea>
-    <button class="chat-send" onclick="sendChat()">→</button>
+  <div class="chat-input-row" id="chatBar">
+    <textarea class="chat-input" id="chatInput" rows="1" placeholder="Ask anything..." onkeydown="if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();sendChat()}" oninput="this.style.height='auto';this.style.height=Math.min(this.scrollHeight,80)+'px'"></textarea>
+    <button class="chat-send" onclick="sendChat()">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z"/></svg>
+    </button>
   </div>
 </div>
 
 <!-- ===== WEIGHT PAGE ===== -->
 <div class="page" id="pg-weight">
-  <div class="page-header"><h1>⚖️ Log Weight</h1><div class="sub">Track your progress</div></div>
+  <div class="page-header"><h1>Log Weight</h1><div class="sub">Track your body composition</div></div>
   <div class="weight-input-group">
     <input type="number" id="weightInput" value="72.4" step="0.1" min="50" max="150"><span class="unit">kg</span>
   </div>
@@ -329,11 +333,11 @@ body {
 
 <!-- ===== BOTTOM NAV ===== -->
 <nav class="bottom-nav">
-  <div class="nav-item active" data-page="pg-dash"><div class="icon">📊</div>Dashboard</div>
-  <div class="nav-item" data-page="pg-ask"><div class="icon">💬</div>Ask</div>
-  <div class="nav-upload" data-page="pg-upload">📸</div>
-  <div class="nav-item" data-page="pg-weight"><div class="icon">⚖️</div>Weight</div>
-  <div class="nav-item" onclick="window.open('https://docs.google.com/spreadsheets/d/1j17rcBXVck-LHO1P0vpA-2cp1Owp44dYlYpHcQvEJmE','_blank')"><div class="icon">📋</div>Sheet</div>
+  <div class="nav-item active" data-page="pg-dash"><div class="icon"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg></div>Home</div>
+  <div class="nav-item" data-page="pg-ask"><div class="icon"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg></div>Ask</div>
+  <div class="nav-upload" data-page="pg-upload"><svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg></div>
+  <div class="nav-item" data-page="pg-weight"><div class="icon"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2a10 10 0 1 0 0 20 10 10 0 0 0 0-20z"/><path d="M12 6v6l4 2"/></svg></div>Weight</div>
+  <div class="nav-item" onclick="window.open('https://docs.google.com/spreadsheets/d/1j17rcBXVck-LHO1P0vpA-2cp1Owp44dYlYpHcQvEJmE','_blank')"><div class="icon"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg></div>Sheet</div>
 </nav>
 
 <script>

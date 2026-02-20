@@ -390,6 +390,15 @@ const CAL_TARGET = 1750, PROT_TARGET = 145;
 const WA_NUMBER = '60169120952';
 let API_URL = '';
 const GIST_RAW = 'https://gist.githubusercontent.com/abigailmini/1a10bef17254252fb6af2c61f2db6fc0/raw/api-url.txt';
+
+// API fetch helper with serveo bypass header
+function apiFetch(path, body) {
+  return fetch(`${API_URL}${path}`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'Bypass-Tunnel-Reminder': 'true' },
+    body: JSON.stringify(body)
+  });
+}
 let dailyData = [], lastAnalysis = null;
 
 // ===== NAV =====
@@ -537,11 +546,7 @@ fileInput.addEventListener('change', async (e) => {
     document.getElementById('editSection').style.display = 'none';
 
     try {
-      const resp = await fetch(`${API_URL}/analyze`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ image: dataUrl })
-      });
+      const resp = await apiFetch('/analyze', { image: dataUrl });
       const data = await resp.json();
       document.getElementById('analyzingMsg').style.display = 'none';
 
@@ -671,11 +676,7 @@ Loves: omakase, wagyu, ramen, duck, satay, nasi lemak. Based in KL, Malaysia.`;
   const msgs = document.getElementById('chatMsgs');
 
   try {
-    const resp = await fetch(`${API_URL}/chat`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ question: q, context })
-    });
+    const resp = await apiFetch('/chat', { question: q, context });
     const data = await resp.json();
     msgs.removeChild(msgs.lastChild);
     if (data.ok) {
@@ -700,8 +701,11 @@ function logWeight() {
 (async () => {
   // Fetch API URL from gist (auto-updated when tunnel reconnects)
   try {
-    const r = await fetch(GIST_RAW + '?t=' + Date.now());
+    const r = await fetch(GIST_RAW, { cache: 'no-store' });
     API_URL = (await r.text()).trim();
+    console.log('API URL:', API_URL);
+    // Warm up the tunnel (bypass serveo interstitial)
+    fetch(API_URL + '/health', { headers: { 'Bypass-Tunnel-Reminder': 'true' } }).catch(() => {});
   } catch(e) { console.warn('Could not fetch API URL:', e); }
 
   try {

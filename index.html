@@ -340,6 +340,7 @@ body {
 const SHEET_ID = '1j17rcBXVck-LHO1P0vpA-2cp1Owp44dYlYpHcQvEJmE';
 const CAL_TARGET = 1750, PROT_TARGET = 145;
 const WA_NUMBER = '60169120952';
+const API_URL = 'https://d5822cc39f4cac8c-60-50-218-160.serveousercontent.com';
 let dailyData = [], lastAnalysis = null;
 
 // ===== NAV =====
@@ -486,26 +487,63 @@ fileInput.addEventListener('change', async (e) => {
     document.getElementById('resultBox').style.display = 'none';
     document.getElementById('logBtn').style.display = 'none';
 
-    // Send to WhatsApp for AI analysis (routed through Abi/GPT mini)
-    const waText = encodeURIComponent('📸 Food photo for calorie scan — please analyze this meal');
-    // For now, open WhatsApp with the message. User sends photo there.
-    // In future, can add direct API integration.
-    
-    // Show result with WhatsApp redirect
-    document.getElementById('analyzingMsg').style.display = 'none';
-    document.getElementById('resultBox').style.display = 'block';
-    document.getElementById('resultBox').innerHTML = `
-      <h3>📸 Photo Ready</h3>
-      <p>To get AI calorie analysis, send this photo to Abi on WhatsApp. Tap below:</p>
-      <a href="https://wa.me/${WA_NUMBER}?text=${waText}" target="_blank" 
-         style="display:block;text-align:center;padding:14px;background:linear-gradient(135deg,#25D366,#128C7E);color:#fff;border-radius:12px;text-decoration:none;font-weight:700;margin-top:12px">
-        📱 Send to Abi on WhatsApp
-      </a>
-      <p style="color:var(--text-dim);font-size:0.75rem;margin-top:8px;text-align:center">Abi will analyze and log it to your sheet automatically</p>
-    `;
+    try {
+      const resp = await fetch(`${API_URL}/analyze`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ image: dataUrl })
+      });
+      const data = await resp.json();
+      document.getElementById('analyzingMsg').style.display = 'none';
+      document.getElementById('resultBox').style.display = 'block';
+
+      if (data.ok && data.analysis) {
+        const a = data.analysis;
+        if (a.raw) {
+          document.getElementById('resultBox').innerHTML = `<h3>📊 Analysis</h3><p>${a.raw}</p>`;
+        } else {
+          lastAnalysis = a;
+          const itemsHtml = (a.items||[]).map(i => 
+            `<div style="display:flex;justify-content:space-between;padding:4px 0;border-bottom:1px solid rgba(255,255,255,0.05)">
+              <span>${i.name}</span><span style="color:var(--accent2)">${i.calories} cal · ${i.protein}g P</span>
+            </div>`).join('');
+          document.getElementById('resultBox').innerHTML = `
+            <h3>📊 ${a.meal_name || 'Meal Analysis'}</h3>
+            <div style="margin:12px 0">${itemsHtml}</div>
+            <div style="background:rgba(0,206,201,0.1);border-radius:10px;padding:12px;margin-top:12px">
+              <div style="display:flex;justify-content:space-around;text-align:center">
+                <div><div style="font-size:1.3rem;font-weight:800;color:var(--accent2)">${a.total?.calories||0}</div><div style="font-size:0.65rem;color:var(--text-dim)">CALORIES</div></div>
+                <div><div style="font-size:1.3rem;font-weight:800;color:var(--green)">${a.total?.protein||0}g</div><div style="font-size:0.65rem;color:var(--text-dim)">PROTEIN</div></div>
+                <div><div style="font-size:1.3rem;font-weight:800;color:var(--orange)">${a.total?.carbs||0}g</div><div style="font-size:0.65rem;color:var(--text-dim)">CARBS</div></div>
+                <div><div style="font-size:1.3rem;font-weight:800;color:var(--yellow)">${a.total?.fat||0}g</div><div style="font-size:0.65rem;color:var(--text-dim)">FAT</div></div>
+              </div>
+            </div>
+            ${a.confidence ? `<div style="text-align:center;margin-top:8px;font-size:0.7rem;color:var(--text-dim)">Confidence: ${a.confidence}</div>` : ''}
+            ${a.notes ? `<div style="margin-top:8px;font-size:0.8rem;color:var(--text-dim);font-style:italic">${a.notes}</div>` : ''}`;
+          document.getElementById('logBtn').style.display = 'block';
+        }
+      } else {
+        document.getElementById('resultBox').innerHTML = `<h3>❌ Error</h3><p>${data.error || 'Analysis failed'}</p>`;
+      }
+    } catch(e) {
+      document.getElementById('analyzingMsg').style.display = 'none';
+      document.getElementById('resultBox').style.display = 'block';
+      document.getElementById('resultBox').innerHTML = `<h3>⚠️ API Offline</h3><p>The analysis server isn't reachable. Send the photo to Abi on WhatsApp instead:</p>
+        <a href="https://wa.me/${WA_NUMBER}?text=${encodeURIComponent('📸 Food photo for calorie scan')}" target="_blank"
+           style="display:block;text-align:center;padding:14px;background:linear-gradient(135deg,#25D366,#128C7E);color:#fff;border-radius:12px;text-decoration:none;font-weight:700;margin-top:12px">
+          📱 Send to Abi on WhatsApp
+        </a>`;
+    }
   };
   reader.readAsDataURL(file);
 });
+
+function logToSheet() {
+  if (!lastAnalysis?.total) return;
+  const a = lastAnalysis;
+  const waText = encodeURIComponent(`📝 Log meal: ${a.meal_name || 'Meal'} — ${a.total.calories} cal, ${a.total.protein}g protein, ${a.total.carbs}g carbs, ${a.total.fat}g fat`);
+  window.open(`https://wa.me/${WA_NUMBER}?text=${waText}`, '_blank');
+}
 
 function resetUpload() {
   document.getElementById('previewArea').classList.remove('show');
@@ -536,36 +574,36 @@ async function sendChat() {
   addMsg(q, 'user');
   addMsg('<span class="thinking"><span class="spinner"></span> Thinking...</span>', 'ai');
 
-  // Build context from loaded data
   const today = new Date().toISOString().split('T')[0];
-  const todayData = dailyData.find(d => d.date === today);
+  const td = dailyData.find(d => d.date === today);
   const avgCal = dailyData.length ? Math.round(dailyData.reduce((s,d)=>s+d.cal,0)/dailyData.length) : 0;
   const avgProt = dailyData.length ? Math.round(dailyData.reduce((s,d)=>s+d.prot,0)/dailyData.length) : 0;
   
-  const context = `User: David. Goals: 1750 cal/day, 145g protein/day, lose fat from 18.5% to 14% BF.
-Current weight: 72.4kg, target: 68.6kg.
-Today (${today}): ${todayData ? todayData.cal + ' cal, ' + todayData.prot + 'g protein so far' : 'no meals logged yet'}.
-Weekly avg: ${avgCal} cal, ${avgProt}g protein over ${dailyData.length} days.
-High uric acid — avoid: beef, shellfish, beer, organ meats.
-Loves: omakase, wagyu, ramen, duck, satay, nasi lemak.`;
+  const context = `User: David. Goals: 1750 cal/day, 145g protein/day, lose fat 18.5%→14% BF.
+Weight: 72.4kg→68.6kg target. Today (${today}): ${td ? td.cal+' cal, '+td.prot+'g prot' : 'nothing logged'}.
+Week avg: ${avgCal} cal, ${avgProt}g prot over ${dailyData.length} days.
+High uric acid — limit beef, shellfish, beer, organ meats.
+Loves: omakase, wagyu, ramen, duck, satay, nasi lemak. Based in KL, Malaysia.`;
 
-  // Route through WhatsApp
-  const waText = encodeURIComponent(`💬 Calorie question: ${q}`);
-  
-  // Remove thinking msg and show redirect
   const msgs = document.getElementById('chatMsgs');
-  msgs.removeChild(msgs.lastChild);
-  
-  addMsg(`Great question! For personalized advice based on your real-time data, let me route this to Abi:<br><br>
-    <a href="https://wa.me/${WA_NUMBER}?text=${waText}" target="_blank"
-       style="display:inline-block;padding:10px 20px;background:linear-gradient(135deg,#25D366,#128C7E);color:#fff;border-radius:10px;text-decoration:none;font-weight:600;font-size:0.85rem">
-      💬 Ask Abi on WhatsApp
-    </a><br><br>
-    <span style="font-size:0.78rem;color:var(--text-dim)">Meanwhile, here's what I know from your data:</span><br>
-    <span style="font-size:0.82rem">• Today: <strong>${todayData ? todayData.cal+' cal / '+todayData.prot+'g prot' : 'nothing logged yet'}</strong><br>
-    • Weekly avg: <strong>${avgCal} cal / ${avgProt}g prot</strong><br>
-    • Cal remaining today: <strong>${todayData ? CAL_TARGET - todayData.cal : CAL_TARGET}</strong><br>
-    • Protein remaining: <strong>${todayData ? PROT_TARGET - todayData.prot + 'g' : PROT_TARGET + 'g'}</strong></span>`, 'ai');
+
+  try {
+    const resp = await fetch(`${API_URL}/chat`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ question: q, context })
+    });
+    const data = await resp.json();
+    msgs.removeChild(msgs.lastChild);
+    if (data.ok) {
+      addMsg(data.reply.replace(/\n/g, '<br>'), 'ai');
+    } else {
+      addMsg(`❌ ${data.error || 'Something went wrong'}`, 'ai');
+    }
+  } catch(e) {
+    msgs.removeChild(msgs.lastChild);
+    addMsg(`⚠️ API offline. <a href="https://wa.me/${WA_NUMBER}?text=${encodeURIComponent('💬 '+q)}" target="_blank" style="color:var(--accent2)">Ask Abi on WhatsApp instead →</a>`, 'ai');
+  }
 }
 
 // ===== WEIGHT =====

@@ -855,15 +855,28 @@ function logWeight() {
 
 // ===== INIT =====
 (async () => {
-  // Render dashboard first (non-blocking)
+  // Try loading cached data first for instant render
+  try {
+    const cached = localStorage.getItem('dashData');
+    if (cached) {
+      const cData = JSON.parse(cached);
+      if (cData.length > 0) renderDash(cData);
+    }
+  } catch(e) {}
+
+  // Then fetch fresh data
   try {
     const data = await fetchData();
     console.log('Fetched', data.length, 'days of data');
     if (data.length === 0) throw new Error('No data found in sheet');
+    localStorage.setItem('dashData', JSON.stringify(data));
     renderDash(data);
   } catch(e) {
     console.error('Dashboard error:', e);
-    document.getElementById('pg-dash').innerHTML = `<div class="loading-page">❌ ${e.message}<br><button class="btn btn-primary" style="width:auto;margin-top:16px;padding:10px 24px" onclick="location.reload()">Retry</button></div>`;
+    // Only show error if we have nothing cached
+    if (!localStorage.getItem('dashData')) {
+      document.getElementById('pg-dash').innerHTML = `<div class="loading-page">❌ ${e.message}<br><button class="btn btn-primary" style="width:auto;margin-top:16px;padding:10px 24px" onclick="location.reload()">Retry</button></div>`;
+    }
   }
 
   // Then resolve API URL in background (non-blocking for page render)

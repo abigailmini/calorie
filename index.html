@@ -400,12 +400,14 @@ const GIST_RAW = 'https://gist.githubusercontent.com/abigailmini/1a10bef17254252
 
 // API fetch helper with serveo bypass header
 function apiFetch(path, body, timeoutMs = 30000) {
+  const ctrl = new AbortController();
+  const timer = setTimeout(() => ctrl.abort(), timeoutMs);
   return fetch(`${API_URL}${path}`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', 'Bypass-Tunnel-Reminder': 'true' },
     body: JSON.stringify(body),
-    signal: AbortSignal.timeout(timeoutMs)
-  });
+    signal: ctrl.signal
+  }).finally(() => clearTimeout(timer));
 }
 let dailyData = [], lastAnalysis = null;
 
@@ -419,6 +421,10 @@ document.querySelectorAll('.nav-item, .nav-upload').forEach(el => {
     document.querySelectorAll('.nav-item, .nav-upload').forEach(n => n.classList.remove('active'));
     el.classList.add('active');
     window.scrollTo(0, 0);
+    // Reset upload page state when navigating to it
+    if (page === 'pg-upload' && !document.getElementById('previewArea').classList.contains('show')) {
+      document.getElementById('uploadBtns').style.display = 'flex';
+    }
   });
 });
 
@@ -748,7 +754,9 @@ function logWeight() {
   console.log('API URL:', API_URL);
   // Test if API is reachable, fall back if not
   try {
-    const h = await fetch(API_URL + '/health', { headers: { 'Bypass-Tunnel-Reminder': 'true' }, signal: AbortSignal.timeout(5000) });
+    const hCtrl = new AbortController();
+    setTimeout(() => hCtrl.abort(), 5000);
+    const h = await fetch(API_URL + '/health', { headers: { 'Bypass-Tunnel-Reminder': 'true' }, signal: hCtrl.signal });
     if (!h.ok) throw new Error('not ok');
     console.log('API online');
   } catch(e) {

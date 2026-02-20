@@ -882,8 +882,13 @@ function logWeight() {
   }
 
   // Then resolve API URL in background (non-blocking for page render)
-  const FALLBACK_API = 'https://cafd2f924b4bb3c8-60-50-218-160.serveousercontent.com';
-  API_URL = FALLBACK_API;
+  const FALLBACK_API = 'https://alternatives-nil-sales-rewards.trycloudflare.com';
+  // If served from the API server (same-origin), use relative paths
+  if (location.hostname.includes('trycloudflare.com') || location.hostname.includes('serveousercontent.com') || location.hostname === 'localhost') {
+    API_URL = '';  // same origin, no CORS needed
+  } else {
+    API_URL = FALLBACK_API;
+  }
   try {
     const gCtrl = new AbortController();
     setTimeout(() => gCtrl.abort(), 3000);

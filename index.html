@@ -747,19 +747,38 @@ function addItem() {
   setTimeout(() => { const names = document.querySelectorAll('.edit-item-name'); names[names.length-1]?.focus(); }, 50);
 }
 
-function logToSheet() {
+async function logToSheet() {
   const t = editItems.reduce((s, i) => ({ cal: s.cal+(+i.calories||0), prot: s.prot+(+i.protein||0), carb: s.carb+(+i.carbs||0), fat: s.fat+(+i.fat||0) }), { cal:0, prot:0, carb:0, fat:0 });
-  const names = editItems.map(i => i.name).join(' + ');
-  const waText = encodeURIComponent(`📝 Log meal: ${names} — ${t.cal} cal, ${t.prot}g protein, ${t.carb}g carbs, ${t.fat}g fat`);
-  window.open(`https://wa.me/${WA_NUMBER}?text=${waText}`, '_blank');
-  // Show confirmation
-  document.getElementById('editSection').innerHTML = `
-    <div class="card" style="margin-top:12px;text-align:center;padding:24px">
-      <div style="font-size:2rem;margin-bottom:8px">✅</div>
-      <div style="font-weight:700;margin-bottom:4px">Meal sent to Abi for logging</div>
-      <div style="color:var(--text-dim);font-size:0.8rem">${t.cal} cal · ${t.prot}g protein</div>
-    </div>
-    <button class="btn btn-secondary" onclick="resetUpload()" style="margin-top:12px">Scan Another</button>`;
+  const btn = document.querySelector('#editSection .btn-primary');
+  if (btn) { btn.textContent = '⏳ Logging...'; btn.disabled = true; }
+  try {
+    const resp = await apiFetch('/log', { meal: 'Meal', items: editItems }, 20000);
+    const data = await resp.json();
+    if (data.ok) {
+      document.getElementById('editSection').innerHTML = `
+        <div class="card" style="margin-top:12px;text-align:center;padding:24px">
+          <div style="font-size:2rem;margin-bottom:8px">✅</div>
+          <div style="font-weight:700;margin-bottom:4px">Logged to Google Sheet!</div>
+          <div style="color:var(--text-dim);font-size:0.8rem">${t.cal} cal · ${t.prot}g protein</div>
+        </div>
+        <button class="btn btn-secondary" onclick="resetUpload()" style="margin-top:12px">Log Another</button>
+        <button class="btn btn-secondary" onclick="document.querySelectorAll('.nav-item')[0].click()" style="margin-top:8px">← Back to Dashboard</button>`;
+      // Refresh dashboard data in background
+      try { const d = await fetchData(); renderDash(d); } catch(e) {}
+    } else { throw new Error(data.error || 'Failed'); }
+  } catch(e) {
+    // Fallback to WhatsApp if API fails
+    const names = editItems.map(i => i.name).join(' + ');
+    const waText = encodeURIComponent(`📝 Log meal: ${names} — ${t.cal} cal, ${t.prot}g protein, ${t.carb}g carbs, ${t.fat}g fat`);
+    window.open(`https://wa.me/${WA_NUMBER}?text=${waText}`, '_blank');
+    document.getElementById('editSection').innerHTML = `
+      <div class="card" style="margin-top:12px;text-align:center;padding:24px">
+        <div style="font-size:2rem;margin-bottom:8px">⚠️</div>
+        <div style="font-weight:700;margin-bottom:4px">API offline — sent to Abi via WhatsApp</div>
+        <div style="color:var(--text-dim);font-size:0.8rem">${t.cal} cal · ${t.prot}g protein</div>
+      </div>
+      <button class="btn btn-secondary" onclick="resetUpload()" style="margin-top:12px">Log Another</button>`;
+  }
 }
 
 function resetUpload() {

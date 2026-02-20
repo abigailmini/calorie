@@ -440,17 +440,22 @@ async function fetchData() {
   const meals = [];
   for (const row of json.table.rows) {
     const c = row.c;
-    if (!c[0]?.v) continue;
-    let d = String(c[0].f || c[0].v);
-    if (d.startsWith('Date(')) {
-      const p = d.match(/Date\((\d+),(\d+),(\d+)\)/);
-      if (p) d = new Date(+p[1], +p[2], +p[3]).toISOString().split('T')[0];
+    if (!c[0]) continue;
+    let d = '';
+    // Handle Google Sheets date format
+    const raw = String(c[0].v || '');
+    const fmt = c[0].f || '';
+    if (fmt && /^\d{4}-\d{2}-\d{2}$/.test(fmt)) {
+      d = fmt;
+    } else if (raw.startsWith('Date(')) {
+      const p = raw.match(/Date\((\d+),(\d+),(\d+)\)/);
+      if (p) d = `${p[1]}-${String(+p[2]+1).padStart(2,'0')}-${String(+p[3]).padStart(2,'0')}`;
+    } else if (/^\d{4}-\d{2}-\d{2}$/.test(raw)) {
+      d = raw;
     }
-    // Skip non-date rows (headers, summaries)
-    if (!/^\d{4}-\d{2}-\d{2}$/.test(d)) continue;
+    if (!d) continue;
     const meal = c[1]?.v||'';
-    // Skip DAILY TOTAL rows
-    if (meal === 'DAILY TOTAL' || meal === '📊 TOTAL') continue;
+    if (meal === 'DAILY TOTAL' || meal === '📊 TOTAL' || meal === 'Meal') continue;
     meals.push({ date: d, meal, food: c[2]?.v||'', cal: Number(c[3]?.v)||0, prot: Number(c[4]?.v)||0 });
   }
   const byDate = {};
@@ -752,8 +757,11 @@ function logWeight() {
   // Render dashboard first (non-blocking)
   try {
     const data = await fetchData();
+    console.log('Fetched', data.length, 'days of data');
+    if (data.length === 0) throw new Error('No data found in sheet');
     renderDash(data);
   } catch(e) {
+    console.error('Dashboard error:', e);
     document.getElementById('pg-dash').innerHTML = `<div class="loading-page">❌ ${e.message}<br><button class="btn btn-primary" style="width:auto;margin-top:16px;padding:10px 24px" onclick="location.reload()">Retry</button></div>`;
   }
 

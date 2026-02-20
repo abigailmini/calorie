@@ -307,12 +307,15 @@ body {
 <!-- ===== UPLOAD PAGE ===== -->
 <div class="page" id="pg-upload">
   <div class="page-header"><h1>Scan Food</h1><div class="sub">Take a photo or pick from gallery · AI estimates calories</div></div>
-  <div class="upload-zone" id="uploadZone" onclick="document.getElementById('fileInput').click()">
-    <div class="icon"><svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="var(--accent2)" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg></div>
-    <div class="txt">Tap to take photo or choose from gallery</div>
-    <div class="hint">AI will analyze and estimate calories & macros</div>
+  <div class="upload-zone" id="uploadZone" onclick="document.getElementById('fileInput').click()" style="display:none">
   </div>
-  <input type="file" id="fileInput" accept="image/*" style="display:none">
+  <input type="file" id="fileInput" accept="image/*" capture="environment" style="display:none">
+  <input type="file" id="fileInputGallery" accept="image/*" style="display:none">
+  <div id="uploadBtns" style="display:flex;flex-direction:column;gap:10px;padding-top:20px">
+    <div style="text-align:center;margin-bottom:12px"><svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="var(--accent2)" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg></div>
+    <button class="btn btn-primary" onclick="document.getElementById('fileInput').click()">📸 Take Photo</button>
+    <button class="btn btn-secondary" onclick="document.getElementById('fileInputGallery').click()">🖼️ Choose from Gallery</button>
+  </div>
   <div class="preview-area" id="previewArea">
     <img id="previewImg" src="" alt="Food photo">
     <div class="analyzing" id="analyzingMsg"><span class="spinner"></span> Analyzing with AI...</div>
@@ -383,7 +386,7 @@ body {
 <nav class="bottom-nav">
   <div class="nav-item active" data-page="pg-dash"><div class="icon"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg></div>Home</div>
   <div class="nav-item" data-page="pg-ask"><div class="icon"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg></div>Ask</div>
-  <div class="nav-upload" data-page="pg-upload"><svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg></div>
+  <div class="nav-upload" data-page="pg-upload" onclick="document.getElementById('fileInput').click()"><svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg></div>
   <div class="nav-item" data-page="pg-weight"><div class="icon"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2a10 10 0 1 0 0 20 10 10 0 0 0 0-20z"/><path d="M12 6v6l4 2"/></svg></div>Weight</div>
   <div class="nav-item" onclick="window.open('https://docs.google.com/spreadsheets/d/1j17rcBXVck-LHO1P0vpA-2cp1Owp44dYlYpHcQvEJmE','_blank')"><div class="icon"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg></div>Sheet</div>
 </nav>
@@ -536,13 +539,17 @@ function renderDash(data) {
 
 // ===== UPLOAD / PHOTO SCAN =====
 const fileInput = document.getElementById('fileInput');
-fileInput.addEventListener('change', async (e) => {
+const fileInputGallery = document.getElementById('fileInputGallery');
+fileInputGallery.addEventListener('change', handlePhoto);
+fileInput.addEventListener('change', handlePhoto);
+async function handlePhoto(e) {
   const file = e.target.files[0];
   if (!file) return;
 
   const reader = new FileReader();
   reader.onload = async (ev) => {
     const origDataUrl = ev.target.result;
+    document.getElementById('uploadBtns').style.display = 'none';
     document.getElementById('previewImg').src = origDataUrl;
 
     // Compress image before sending (max 800px, JPEG 70%)
@@ -661,11 +668,13 @@ function logToSheet() {
 
 function resetUpload() {
   document.getElementById('previewArea').classList.remove('show');
-  document.getElementById('uploadZone').style.display = '';
+  document.getElementById('uploadBtns').style.display = 'flex';
   document.getElementById('editSection').style.display = 'none';
   document.getElementById('resultBox').style.display = 'none';
+  document.getElementById('recoBox').style.display = 'none';
   editItems = [];
   fileInput.value = '';
+  fileInputGallery.value = '';
 }
 
 // ===== ASK / CHAT =====

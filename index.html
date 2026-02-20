@@ -141,6 +141,34 @@ body {
 .btn-secondary { background: rgba(255,255,255,0.08); color: var(--text); margin-top: 8px; }
 .btn:disabled { opacity: 0.5; }
 
+/* Editable item rows */
+.edit-item {
+  background: rgba(255,255,255,0.03); border: 1px solid var(--card-border);
+  border-radius: 10px; padding: 10px; margin-bottom: 8px;
+}
+.edit-item-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; }
+.edit-item-name {
+  background: transparent; border: none; color: var(--text-bright);
+  font-family: inherit; font-size: 0.85rem; font-weight: 600; outline: none;
+  flex: 1; padding: 2px 0;
+  border-bottom: 1px solid transparent;
+}
+.edit-item-name:focus { border-bottom-color: var(--accent2); }
+.edit-item-del {
+  width: 24px; height: 24px; border-radius: 6px; border: none;
+  background: rgba(255,107,107,0.15); color: var(--red);
+  font-size: 0.8rem; cursor: pointer; flex-shrink: 0; margin-left: 8px;
+}
+.edit-item-macros { display: grid; grid-template-columns: 1fr 1fr 1fr 1fr; gap: 6px; }
+.macro-field { text-align: center; }
+.macro-field label { display: block; font-size: 0.6rem; color: var(--text-dim); text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 2px; }
+.macro-field input {
+  width: 100%; background: var(--card); border: 1px solid var(--card-border);
+  border-radius: 8px; padding: 6px 4px; color: var(--text-bright);
+  font-family: inherit; font-size: 0.85rem; font-weight: 600; text-align: center; outline: none;
+}
+.macro-field input:focus { border-color: var(--accent2); }
+
 /* ============ ASK PAGE ============ */
 .chat-messages {
   min-height: 200px; max-height: calc(100dvh - 280px); overflow-y: auto;
@@ -289,8 +317,24 @@ body {
     <img id="previewImg" src="" alt="Food photo">
     <div class="analyzing" id="analyzingMsg"><span class="spinner"></span> Analyzing with AI...</div>
     <div class="result" id="resultBox" style="display:none"></div>
-    <button class="btn btn-primary" id="logBtn" style="display:none;margin-top:12px" onclick="logToSheet()">✅ Log This Meal</button>
-    <button class="btn btn-secondary" onclick="resetUpload()">📷 Scan Another</button>
+    <!-- Editable items list -->
+    <div id="editSection" style="display:none">
+      <div class="card" style="margin-top:12px">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
+          <div class="card-title" style="margin:0">Edit Items</div>
+          <button class="chip" onclick="addItem()" style="margin:0;font-size:0.7rem">+ Add Item</button>
+        </div>
+        <div id="itemsList"></div>
+      </div>
+      <div class="card" style="margin-top:10px">
+        <div class="card-title">Meal Total</div>
+        <div style="display:flex;justify-content:space-around;text-align:center" id="editTotals"></div>
+      </div>
+      <div style="display:flex;gap:8px;margin-top:12px">
+        <button class="btn btn-primary" style="flex:2" onclick="logToSheet()">✅ Log Meal</button>
+        <button class="btn btn-secondary" style="flex:1;margin:0" onclick="resetUpload()">Retake</button>
+      </div>
+    </div>
   </div>
 </div>
 
@@ -490,7 +534,7 @@ fileInput.addEventListener('change', async (e) => {
     document.getElementById('uploadZone').style.display = 'none';
     document.getElementById('analyzingMsg').style.display = 'block';
     document.getElementById('resultBox').style.display = 'none';
-    document.getElementById('logBtn').style.display = 'none';
+    document.getElementById('editSection').style.display = 'none';
 
     try {
       const resp = await fetch(`${API_URL}/analyze`, {
@@ -500,59 +544,93 @@ fileInput.addEventListener('change', async (e) => {
       });
       const data = await resp.json();
       document.getElementById('analyzingMsg').style.display = 'none';
-      document.getElementById('resultBox').style.display = 'block';
 
       if (data.ok && data.analysis) {
         const a = data.analysis;
         if (a.raw) {
-          document.getElementById('resultBox').innerHTML = `<h3>📊 Analysis</h3><p>${a.raw}</p>`;
+          document.getElementById('resultBox').style.display = 'block';
+          document.getElementById('resultBox').innerHTML = `<h3>📊 Analysis</h3><p style="font-size:0.85rem">${a.raw}</p>`;
         } else {
           lastAnalysis = a;
-          const itemsHtml = (a.items||[]).map(i => 
-            `<div style="display:flex;justify-content:space-between;padding:4px 0;border-bottom:1px solid rgba(255,255,255,0.05)">
-              <span>${i.name}</span><span style="color:var(--accent2)">${i.calories} cal · ${i.protein}g P</span>
-            </div>`).join('');
-          document.getElementById('resultBox').innerHTML = `
-            <h3>📊 ${a.meal_name || 'Meal Analysis'}</h3>
-            <div style="margin:12px 0">${itemsHtml}</div>
-            <div style="background:rgba(0,206,201,0.1);border-radius:10px;padding:12px;margin-top:12px">
-              <div style="display:flex;justify-content:space-around;text-align:center">
-                <div><div style="font-size:1.3rem;font-weight:800;color:var(--accent2)">${a.total?.calories||0}</div><div style="font-size:0.65rem;color:var(--text-dim)">CALORIES</div></div>
-                <div><div style="font-size:1.3rem;font-weight:800;color:var(--green)">${a.total?.protein||0}g</div><div style="font-size:0.65rem;color:var(--text-dim)">PROTEIN</div></div>
-                <div><div style="font-size:1.3rem;font-weight:800;color:var(--orange)">${a.total?.carbs||0}g</div><div style="font-size:0.65rem;color:var(--text-dim)">CARBS</div></div>
-                <div><div style="font-size:1.3rem;font-weight:800;color:var(--yellow)">${a.total?.fat||0}g</div><div style="font-size:0.65rem;color:var(--text-dim)">FAT</div></div>
-              </div>
-            </div>
-            ${a.confidence ? `<div style="text-align:center;margin-top:8px;font-size:0.7rem;color:var(--text-dim)">Confidence: ${a.confidence}</div>` : ''}
-            ${a.notes ? `<div style="margin-top:8px;font-size:0.8rem;color:var(--text-dim);font-style:italic">${a.notes}</div>` : ''}`;
-          document.getElementById('logBtn').style.display = 'block';
+          editItems = (a.items || []).map(i => ({...i}));
+          renderEditItems();
+          document.getElementById('editSection').style.display = 'block';
         }
       } else {
-        document.getElementById('resultBox').innerHTML = `<h3>❌ Error</h3><p>${data.error || 'Analysis failed'}</p>`;
+        document.getElementById('resultBox').style.display = 'block';
+        document.getElementById('resultBox').innerHTML = `<h3>❌ Error</h3><p>${data.error || 'Failed'}</p>`;
       }
     } catch(e) {
       document.getElementById('analyzingMsg').style.display = 'none';
       document.getElementById('resultBox').style.display = 'block';
-      document.getElementById('resultBox').innerHTML = `<h3>⚠️ API Offline</h3><p>The analysis server isn't reachable. Send the photo to Abi on WhatsApp instead:</p>
+      document.getElementById('resultBox').innerHTML = `<h3>⚠️ API Offline</h3>
+        <p style="font-size:0.85rem;margin-bottom:12px">Can't reach AI server. Send to Abi on WhatsApp instead:</p>
         <a href="https://wa.me/${WA_NUMBER}?text=${encodeURIComponent('📸 Food photo for calorie scan')}" target="_blank"
-           style="display:block;text-align:center;padding:14px;background:linear-gradient(135deg,#25D366,#128C7E);color:#fff;border-radius:12px;text-decoration:none;font-weight:700;margin-top:12px">
-          📱 Send to Abi on WhatsApp
+           style="display:block;text-align:center;padding:12px;background:linear-gradient(135deg,#25D366,#128C7E);color:#fff;border-radius:10px;text-decoration:none;font-weight:700">
+          Send to Abi on WhatsApp
         </a>`;
     }
   };
   reader.readAsDataURL(file);
 });
 
+let editItems = [];
+
+function renderEditItems() {
+  const list = document.getElementById('itemsList');
+  list.innerHTML = editItems.map((item, i) => `
+    <div class="edit-item" data-idx="${i}">
+      <div class="edit-item-header">
+        <input class="edit-item-name" value="${item.name || ''}" onchange="editItems[${i}].name=this.value">
+        <button class="edit-item-del" onclick="editItems.splice(${i},1);renderEditItems()">✕</button>
+      </div>
+      <div class="edit-item-macros">
+        <div class="macro-field"><label>Cal</label><input type="number" value="${item.calories||0}" onchange="editItems[${i}].calories=+this.value;updateTotals()"></div>
+        <div class="macro-field"><label>Protein</label><input type="number" value="${item.protein||0}" onchange="editItems[${i}].protein=+this.value;updateTotals()"></div>
+        <div class="macro-field"><label>Carbs</label><input type="number" value="${item.carbs||0}" onchange="editItems[${i}].carbs=+this.value;updateTotals()"></div>
+        <div class="macro-field"><label>Fat</label><input type="number" value="${item.fat||0}" onchange="editItems[${i}].fat=+this.value;updateTotals()"></div>
+      </div>
+    </div>`).join('');
+  updateTotals();
+}
+
+function updateTotals() {
+  const t = editItems.reduce((s, i) => ({ cal: s.cal+(+i.calories||0), prot: s.prot+(+i.protein||0), carb: s.carb+(+i.carbs||0), fat: s.fat+(+i.fat||0) }), { cal:0, prot:0, carb:0, fat:0 });
+  document.getElementById('editTotals').innerHTML = `
+    <div><div style="font-size:1.4rem;font-weight:800;color:var(--accent2)">${t.cal}</div><div style="font-size:0.6rem;color:var(--text-dim)">CAL</div></div>
+    <div><div style="font-size:1.4rem;font-weight:800;color:var(--green)">${t.prot}g</div><div style="font-size:0.6rem;color:var(--text-dim)">PROT</div></div>
+    <div><div style="font-size:1.4rem;font-weight:800;color:var(--orange)">${t.carb}g</div><div style="font-size:0.6rem;color:var(--text-dim)">CARB</div></div>
+    <div><div style="font-size:1.4rem;font-weight:800;color:var(--yellow)">${t.fat}g</div><div style="font-size:0.6rem;color:var(--text-dim)">FAT</div></div>`;
+}
+
+function addItem() {
+  editItems.push({ name: 'New item', calories: 0, protein: 0, carbs: 0, fat: 0 });
+  renderEditItems();
+  // Focus the new item name
+  setTimeout(() => { const names = document.querySelectorAll('.edit-item-name'); names[names.length-1]?.focus(); }, 50);
+}
+
 function logToSheet() {
-  if (!lastAnalysis?.total) return;
-  const a = lastAnalysis;
-  const waText = encodeURIComponent(`📝 Log meal: ${a.meal_name || 'Meal'} — ${a.total.calories} cal, ${a.total.protein}g protein, ${a.total.carbs}g carbs, ${a.total.fat}g fat`);
+  const t = editItems.reduce((s, i) => ({ cal: s.cal+(+i.calories||0), prot: s.prot+(+i.protein||0), carb: s.carb+(+i.carbs||0), fat: s.fat+(+i.fat||0) }), { cal:0, prot:0, carb:0, fat:0 });
+  const names = editItems.map(i => i.name).join(' + ');
+  const waText = encodeURIComponent(`📝 Log meal: ${names} — ${t.cal} cal, ${t.prot}g protein, ${t.carb}g carbs, ${t.fat}g fat`);
   window.open(`https://wa.me/${WA_NUMBER}?text=${waText}`, '_blank');
+  // Show confirmation
+  document.getElementById('editSection').innerHTML = `
+    <div class="card" style="margin-top:12px;text-align:center;padding:24px">
+      <div style="font-size:2rem;margin-bottom:8px">✅</div>
+      <div style="font-weight:700;margin-bottom:4px">Meal sent to Abi for logging</div>
+      <div style="color:var(--text-dim);font-size:0.8rem">${t.cal} cal · ${t.prot}g protein</div>
+    </div>
+    <button class="btn btn-secondary" onclick="resetUpload()" style="margin-top:12px">Scan Another</button>`;
 }
 
 function resetUpload() {
   document.getElementById('previewArea').classList.remove('show');
   document.getElementById('uploadZone').style.display = '';
+  document.getElementById('editSection').style.display = 'none';
+  document.getElementById('resultBox').style.display = 'none';
+  editItems = [];
   fileInput.value = '';
 }
 

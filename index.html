@@ -691,7 +691,7 @@ async function analyzeManualText() {
   document.getElementById('resultBox').style.display = 'none';
   document.getElementById('editSection').style.display = 'none';
   try {
-    const resp = await apiFetch('/chat', { message: `Estimate calories and macros for this meal. Return JSON only, no explanation. Format: {"items":[{"name":"...","calories":0,"protein":0,"carbs":0,"fat":0}],"recommendation":"..."}
+    const resp = await apiFetch('/chat', { question: `Estimate calories and macros for this meal. Return JSON only, no explanation. Format: {"items":[{"name":"...","calories":0,"protein":0,"carbs":0,"fat":0}],"recommendation":"..."}
 
 Meal: ${text}` }, 30000);
     const data = await resp.json();

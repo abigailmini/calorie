@@ -340,7 +340,8 @@ body {
 const SHEET_ID = '1j17rcBXVck-LHO1P0vpA-2cp1Owp44dYlYpHcQvEJmE';
 const CAL_TARGET = 1750, PROT_TARGET = 145;
 const WA_NUMBER = '60169120952';
-const API_URL = 'https://d5822cc39f4cac8c-60-50-218-160.serveousercontent.com';
+let API_URL = '';
+const GIST_RAW = 'https://gist.githubusercontent.com/abigailmini/1a10bef17254252fb6af2c61f2db6fc0/raw/api-url.txt';
 let dailyData = [], lastAnalysis = null;
 
 // ===== NAV =====
@@ -615,6 +616,12 @@ function logWeight() {
 
 // ===== INIT =====
 (async () => {
+  // Fetch API URL from gist (auto-updated when tunnel reconnects)
+  try {
+    const r = await fetch(GIST_RAW + '?t=' + Date.now());
+    API_URL = (await r.text()).trim();
+  } catch(e) { console.warn('Could not fetch API URL:', e); }
+
   try {
     const data = await fetchData();
     renderDash(data);

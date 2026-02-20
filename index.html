@@ -743,33 +743,25 @@ function logWeight() {
 
 // ===== INIT =====
 (async () => {
-  // Fetch API URL from gist (auto-updated when tunnel reconnects)
-  const FALLBACK_API = 'https://cafd2f924b4bb3c8-60-50-218-160.serveousercontent.com';
-  try {
-    const r = await fetch(GIST_RAW, { cache: 'no-store' });
-    const gistUrl = (await r.text()).trim();
-    if (gistUrl.startsWith('https://')) API_URL = gistUrl;
-    else API_URL = FALLBACK_API;
-  } catch(e) { API_URL = FALLBACK_API; }
-  console.log('API URL:', API_URL);
-  // Test if API is reachable, fall back if not
-  try {
-    const hCtrl = new AbortController();
-    setTimeout(() => hCtrl.abort(), 5000);
-    const h = await fetch(API_URL + '/health', { headers: { 'Bypass-Tunnel-Reminder': 'true' }, signal: hCtrl.signal });
-    if (!h.ok) throw new Error('not ok');
-    console.log('API online');
-  } catch(e) {
-    console.warn('Primary API offline, trying fallback');
-    API_URL = FALLBACK_API;
-  }
-
+  // Render dashboard first (non-blocking)
   try {
     const data = await fetchData();
     renderDash(data);
   } catch(e) {
     document.getElementById('pg-dash').innerHTML = `<div class="loading-page">❌ ${e.message}<br><button class="btn btn-primary" style="width:auto;margin-top:16px;padding:10px 24px" onclick="location.reload()">Retry</button></div>`;
   }
+
+  // Then resolve API URL in background (non-blocking for page render)
+  const FALLBACK_API = 'https://cafd2f924b4bb3c8-60-50-218-160.serveousercontent.com';
+  API_URL = FALLBACK_API;
+  try {
+    const gCtrl = new AbortController();
+    setTimeout(() => gCtrl.abort(), 3000);
+    const r = await fetch(GIST_RAW, { cache: 'no-store', signal: gCtrl.signal });
+    const gistUrl = (await r.text()).trim();
+    if (gistUrl.startsWith('https://')) API_URL = gistUrl;
+  } catch(e) {}
+  console.log('API URL:', API_URL);
 })();
 </script>
 </body>

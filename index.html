@@ -468,7 +468,7 @@ async function fetchData() {
     }
     if (!d) continue;
     const meal = c[1]?.v||'';
-    if (meal === 'DAILY TOTAL' || meal === '📊 TOTAL' || meal === 'Meal') continue;
+    if (meal === 'DAILY TOTAL' || meal === '📊 TOTAL') continue;
     meals.push({ date: d, meal, food: c[2]?.v||'', cal: Number(c[3]?.v)||0, prot: Number(c[4]?.v)||0 });
   }
   const byDate = {};
@@ -752,7 +752,9 @@ async function logToSheet() {
   const btn = document.querySelector('#editSection .btn-primary');
   if (btn) { btn.textContent = '⏳ Logging...'; btn.disabled = true; }
   try {
-    const resp = await apiFetch('/log', { meal: 'Meal', items: editItems }, 20000);
+    const hr = new Date().getHours();
+    const autoMeal = hr < 10 ? 'Breakfast' : hr < 14 ? 'Lunch' : hr < 17 ? 'Snack' : 'Dinner';
+    const resp = await apiFetch('/log', { meal: autoMeal, items: editItems }, 20000);
     const data = await resp.json();
     if (data.ok) {
       document.getElementById('editSection').innerHTML = `

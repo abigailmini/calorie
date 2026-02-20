@@ -430,7 +430,8 @@ document.querySelectorAll('.nav-item, .nav-upload').forEach(el => {
 
 // ===== DATA FETCH =====
 async function fetchData() {
-  const url = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=out:json&sheet=Sheet1`;
+  // Only fetch columns A-G to avoid junk data in other columns
+  const url = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=out:json&sheet=Sheet1&tq=${encodeURIComponent('SELECT A,B,C,D,E,F,G WHERE A IS NOT NULL')}`;
   const resp = await fetch(url);
   const text = await resp.text();
   const jsonStr = text.match(/google\.visualization\.Query\.setResponse\((.+)\)/s)?.[1];
@@ -445,7 +446,12 @@ async function fetchData() {
       const p = d.match(/Date\((\d+),(\d+),(\d+)\)/);
       if (p) d = new Date(+p[1], +p[2], +p[3]).toISOString().split('T')[0];
     }
-    meals.push({ date: d, meal: c[1]?.v||'', food: c[2]?.v||'', cal: Number(c[3]?.v)||0, prot: Number(c[4]?.v)||0 });
+    // Skip non-date rows (headers, summaries)
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(d)) continue;
+    const meal = c[1]?.v||'';
+    // Skip DAILY TOTAL rows
+    if (meal === 'DAILY TOTAL' || meal === '📊 TOTAL') continue;
+    meals.push({ date: d, meal, food: c[2]?.v||'', cal: Number(c[3]?.v)||0, prot: Number(c[4]?.v)||0 });
   }
   const byDate = {};
   for (const m of meals) {

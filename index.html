@@ -306,7 +306,7 @@ body {
 
 <!-- ===== UPLOAD PAGE ===== -->
 <div class="page" id="pg-upload">
-  <div class="page-header"><h1>Scan Food</h1><div class="sub">Take a photo or pick from gallery · AI estimates calories</div></div>
+  <div class="page-header"><h1>Log Food</h1><div class="sub">Scan a photo or type what you ate</div></div>
   <div class="upload-zone" id="uploadZone" onclick="document.getElementById('fileInput').click()" style="display:none">
   </div>
   <input type="file" id="fileInput" accept="image/*" capture="environment" style="display:none">
@@ -315,6 +315,19 @@ body {
     <div style="text-align:center;margin-bottom:12px"><svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="var(--accent2)" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg></div>
     <button class="btn btn-primary" onclick="document.getElementById('fileInput').click()">📸 Take Photo</button>
     <button class="btn btn-secondary" onclick="document.getElementById('fileInputGallery').click()">🖼️ Choose from Gallery</button>
+    <div style="display:flex;align-items:center;gap:12px;margin:4px 0"><div style="flex:1;height:1px;background:var(--card-border)"></div><span style="color:var(--text-dim);font-size:0.75rem">OR</span><div style="flex:1;height:1px;background:var(--card-border)"></div></div>
+    <button class="btn btn-secondary" onclick="startManualEntry()" style="border-color:var(--accent)">✏️ Type What You Ate</button>
+    <!-- Quick text input for AI parsing -->
+    <div id="manualEntryBox" style="display:none">
+      <div class="card" style="margin-top:8px">
+        <textarea id="manualFoodInput" placeholder="e.g. chicken rice, teh tarik, 2 eggs&#10;or: nasi lemak 1 pack, iced milo" style="width:100%;min-height:80px;background:var(--bg);border:1px solid var(--card-border);border-radius:8px;color:var(--text);padding:12px;font-size:0.9rem;font-family:inherit;resize:vertical"></textarea>
+        <div style="display:flex;gap:8px;margin-top:10px">
+          <button class="btn btn-primary" style="flex:2" onclick="analyzeManualText()">🧠 Estimate with AI</button>
+          <button class="btn btn-secondary" style="flex:1;margin:0" onclick="skipAIManual()">Skip AI</button>
+        </div>
+        <div style="color:var(--text-dim);font-size:0.7rem;margin-top:6px;text-align:center">AI estimates calories, or skip to enter manually</div>
+      </div>
+    </div>
   </div>
   <div class="preview-area" id="previewArea">
     <img id="previewImg" src="" alt="Food photo">
@@ -661,6 +674,72 @@ function updateTotals() {
     <div><div style="font-size:1.4rem;font-weight:800;color:var(--yellow)">${t.fat}g</div><div style="font-size:0.6rem;color:var(--text-dim)">FAT</div></div>`;
 }
 
+function startManualEntry() {
+  const box = document.getElementById('manualEntryBox');
+  box.style.display = box.style.display === 'none' ? 'block' : 'none';
+  if (box.style.display === 'block') document.getElementById('manualFoodInput').focus();
+}
+
+async function analyzeManualText() {
+  const text = document.getElementById('manualFoodInput').value.trim();
+  if (!text) return;
+  document.getElementById('uploadBtns').style.display = 'none';
+  document.getElementById('previewArea').classList.add('show');
+  document.getElementById('previewImg').src = '';
+  document.getElementById('previewImg').style.display = 'none';
+  document.getElementById('analyzingMsg').style.display = 'block';
+  document.getElementById('resultBox').style.display = 'none';
+  document.getElementById('editSection').style.display = 'none';
+  try {
+    const resp = await apiFetch('/chat', { message: `Estimate calories and macros for this meal. Return JSON only, no explanation. Format: {"items":[{"name":"...","calories":0,"protein":0,"carbs":0,"fat":0}],"recommendation":"..."}
+
+Meal: ${text}` }, 30000);
+    const data = await resp.json();
+    document.getElementById('analyzingMsg').style.display = 'none';
+    if (data.ok && data.reply) {
+      try {
+        const jsonMatch = data.reply.match(/\{[\s\S]*\}/);
+        if (jsonMatch) {
+          const parsed = JSON.parse(jsonMatch[0]);
+          lastAnalysis = parsed;
+          editItems = (parsed.items || []).map(i => ({...i}));
+          renderEditItems();
+          document.getElementById('editSection').style.display = 'block';
+          if (parsed.recommendation) {
+            document.getElementById('recoBox').style.display = 'block';
+            document.getElementById('recoText').textContent = parsed.recommendation;
+          }
+        } else { throw new Error('no json'); }
+      } catch(pe) {
+        editItems = [{ name: text, calories: 0, protein: 0, carbs: 0, fat: 0 }];
+        renderEditItems();
+        document.getElementById('editSection').style.display = 'block';
+      }
+    } else { throw new Error(data.error || 'Failed'); }
+  } catch(e) {
+    document.getElementById('analyzingMsg').style.display = 'none';
+    editItems = [{ name: text, calories: 0, protein: 0, carbs: 0, fat: 0 }];
+    renderEditItems();
+    document.getElementById('editSection').style.display = 'block';
+  }
+}
+
+function skipAIManual() {
+  const text = document.getElementById('manualFoodInput').value.trim();
+  if (!text) return;
+  document.getElementById('uploadBtns').style.display = 'none';
+  document.getElementById('previewArea').classList.add('show');
+  document.getElementById('previewImg').src = '';
+  document.getElementById('previewImg').style.display = 'none';
+  document.getElementById('analyzingMsg').style.display = 'none';
+  document.getElementById('resultBox').style.display = 'none';
+  // Parse comma/newline separated items
+  const items = text.split(/[,\n]+/).map(s => s.trim()).filter(Boolean);
+  editItems = items.map(name => ({ name, calories: 0, protein: 0, carbs: 0, fat: 0 }));
+  renderEditItems();
+  document.getElementById('editSection').style.display = 'block';
+}
+
 function addItem() {
   editItems.push({ name: 'New item', weight_g: 0, calories: 0, protein: 0, carbs: 0, fat: 0 });
   renderEditItems();
@@ -689,6 +768,9 @@ function resetUpload() {
   document.getElementById('editSection').style.display = 'none';
   document.getElementById('resultBox').style.display = 'none';
   document.getElementById('recoBox').style.display = 'none';
+  document.getElementById('previewImg').style.display = '';
+  document.getElementById('manualEntryBox').style.display = 'none';
+  document.getElementById('manualFoodInput').value = '';
   editItems = [];
   fileInput.value = '';
   fileInputGallery.value = '';

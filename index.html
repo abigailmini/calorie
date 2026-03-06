@@ -478,10 +478,17 @@ async function fetchData() {
     // Robust row parsing: find where numeric macro columns start (cal/protein/...) instead of assuming a fixed shift.
     const vals = Array.from({ length: 7 }, (_, i) => c[i]?.v ?? null); // A..G
     let macroStart = -1;
+    // Prefer the first pair of consecutive numeric columns (cal + protein),
+    // but fall back to a single numeric column (some rows only log calories).
     for (let i = 1; i <= 6; i++) {
       const n1 = parseNum(vals[i]);
       const n2 = i + 1 <= 6 ? parseNum(vals[i + 1]) : null;
       if (n1 !== null && n2 !== null) { macroStart = i; break; }
+    }
+    if (macroStart < 0) {
+      for (let i = 1; i <= 6; i++) {
+        if (parseNum(vals[i]) !== null) { macroStart = i; break; }
+      }
     }
     if (macroStart < 0) continue; // not a meal row
 

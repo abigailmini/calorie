@@ -452,10 +452,11 @@ async function fetchData() {
   const json = JSON.parse(jsonStr);
   const meals = [];
   const parseNum = (v) => {
-    const n = Number(v);
-    return Number.isFinite(n) ? n : 0;
+    if (v === null || v === undefined || v === '') return null;
+    const n = Number(String(v).replace(/,/g, '').trim());
+    return Number.isFinite(n) ? n : null;
   };
-  const looksLikeTime = (v) => /^\d{1,2}:\d{2}(?:\s?[AP]M)?$/i.test(String(v || '').trim());
+  const looksLikeTime = (v) => /^\d{1,2}:\d{2}(?::\d{2})?(?:\s?[AP]M)?$/i.test(String(v || '').trim());
 
   for (const row of json.table.rows) {
     const c = row.c;
@@ -474,27 +475,44 @@ async function fetchData() {
     }
     if (!d) continue;
 
-    // Some rows include a time in column B, shifting meal/macros by +1 column.
-    // Support both layouts:
-    //   A=date, B=meal, C=food, D=cal, E=prot, F=carb, G=fat
-    //   A=date, B=time, C=meal, D=food, E=cal, F=prot, G=carb
-    const shifted = looksLikeTime(c[1]?.v);
-    const meal = shifted ? (c[2]?.v || '') : (c[1]?.v || '');
-    if (meal === 'DAILY TOTAL' || meal === '📊 TOTAL') continue;
+    // Robust row parsing: find where numeric macro columns start (cal/protein/...) instead of assuming a fixed shift.
+    const vals = Array.from({ length: 7 }, (_, i) => c[i]?.v ?? null); // A..G
+    let macroStart = -1;
+    for (let i = 1; i <= 6; i++) {
+      const n1 = parseNum(vals[i]);
+      const n2 = i + 1 <= 6 ? parseNum(vals[i + 1]) : null;
+      if (n1 !== null && n2 !== null) { macroStart = i; break; }
+    }
+    if (macroStart < 0) continue; // not a meal row
+
+    const textBeforeMacros = vals
+      .slice(1, macroStart)
+      .map(v => String(v || '').trim())
+      .filter(Boolean)
+      .filter(v => !looksLikeTime(v));
+
+    const meal = textBeforeMacros[0] || 'Uncategorized';
+    const food = textBeforeMacros.length > 1 ? textBeforeMacros.slice(1).join(' · ') : '';
+
+    if (meal === 'DAILY TOTAL' || meal === '📊 TOTAL' || food === 'DAILY TOTAL' || food === '📊 TOTAL') continue;
 
     meals.push({
       date: d,
       meal,
-      food: shifted ? (c[3]?.v || '') : (c[2]?.v || ''),
-      cal: shifted ? parseNum(c[4]?.v) : parseNum(c[3]?.v),
-      prot: shifted ? parseNum(c[5]?.v) : parseNum(c[4]?.v)
+      food,
+      cal: parseNum(vals[macroStart]) ?? 0,
+      prot: parseNum(vals[macroStart + 1]) ?? 0,
+      carb: parseNum(vals[macroStart + 2]) ?? 0,
+      fat: parseNum(vals[macroStart + 3]) ?? 0
     });
   }
   const byDate = {};
   for (const m of meals) {
-    if (!byDate[m.date]) byDate[m.date] = { date: m.date, cal: 0, prot: 0, meals: [] };
+    if (!byDate[m.date]) byDate[m.date] = { date: m.date, cal: 0, prot: 0, carb: 0, fat: 0, meals: [] };
     byDate[m.date].cal += m.cal;
     byDate[m.date].prot += m.prot;
+    byDate[m.date].carb += m.carb;
+    byDate[m.date].fat += m.fat;
     byDate[m.date].meals.push(m);
   }
   return Object.values(byDate).sort((a, b) => a.date.localeCompare(b.date));

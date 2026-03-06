@@ -451,6 +451,12 @@ async function fetchData() {
   if (!jsonStr) throw new Error('Parse failed');
   const json = JSON.parse(jsonStr);
   const meals = [];
+  const parseNum = (v) => {
+    const n = Number(v);
+    return Number.isFinite(n) ? n : 0;
+  };
+  const looksLikeTime = (v) => /^\d{1,2}:\d{2}(?:\s?[AP]M)?$/i.test(String(v || '').trim());
+
   for (const row of json.table.rows) {
     const c = row.c;
     if (!c[0]) continue;
@@ -467,9 +473,22 @@ async function fetchData() {
       d = raw;
     }
     if (!d) continue;
-    const meal = c[1]?.v||'';
+
+    // Some rows include a time in column B, shifting meal/macros by +1 column.
+    // Support both layouts:
+    //   A=date, B=meal, C=food, D=cal, E=prot, F=carb, G=fat
+    //   A=date, B=time, C=meal, D=food, E=cal, F=prot, G=carb
+    const shifted = looksLikeTime(c[1]?.v);
+    const meal = shifted ? (c[2]?.v || '') : (c[1]?.v || '');
     if (meal === 'DAILY TOTAL' || meal === '📊 TOTAL') continue;
-    meals.push({ date: d, meal, food: c[2]?.v||'', cal: Number(c[3]?.v)||0, prot: Number(c[4]?.v)||0 });
+
+    meals.push({
+      date: d,
+      meal,
+      food: shifted ? (c[3]?.v || '') : (c[2]?.v || ''),
+      cal: shifted ? parseNum(c[4]?.v) : parseNum(c[3]?.v),
+      prot: shifted ? parseNum(c[5]?.v) : parseNum(c[4]?.v)
+    });
   }
   const byDate = {};
   for (const m of meals) {
